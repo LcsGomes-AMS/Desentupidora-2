@@ -1,70 +1,76 @@
-const express = require('express');
-const path = require('path');
-const session = require('express-session');
+// server.js
+const express = require("express");
+const sqlite3 = require("sqlite3").verbose();
+const bodyParser = require("body-parser");
+const path = require("path");
+
 const app = express();
-
-// Configurações
-const PORT = process.env.PORT || 3000;
-const SESSION_SECRET = process.env.SESSION_SECRET || 'troque_isto_para_uma_string_secreta';
-
-// Credenciais do admin
-const ADMIN_USER = 'admin';
-const ADMIN_PASS = 'admin2025';
+const PORT = 3000;
 
 // Middlewares
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-app.use(session({
-  secret: SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: { secure: false } // se estiver usando HTTPS, coloque true
-}));
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, "public"))); // serve arquivos da pasta public
 
-// Middleware para checar login
-function requireLogin(req, res, next) {
-  if (req.session && req.session.user === ADMIN_USER) {
-    return next();
+// Conexão com SQLite
+const db = new sqlite3.Database(path.join(__dirname, "banco.db"), (err) => {
+  if (err) {
+    console.error("❌ Erro ao conectar ao SQLite:", err.message);
+    process.exit(1);
   }
-  return res.redirect('/login');
-}
+  console.log("✅ Conectado ao SQLite.");
 
-// Rota de login (formulário)
-app.get('/login', (req, res) => {
-  res.send(`
-    <form method="POST" action="/login">
-      <h2>Login</h2>
-      <input name="username" placeholder="Usuário" required />
-      <input name="password" placeholder="Senha" type="password" required />
-      <button type="submit">Entrar</button>
-    </form>
-  `);
+  // Criar tabela de usuários
+  db.run(
+    `CREATE TABLE IF NOT EXISTS usuarios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE,
+      password TEXT
+    )`,
+    (err) => {
+      if (err) console.error("❌ Erro ao criar tabela:", err.message);
+      else {
+        console.log("Tabela 'usuarios' pronta.");
+
+        // Inserir usuário inicial apenas se não existir
+        db.get("SELECT * FROM usuarios WHERE username = ?", ["admin"], (err, row) => {
+          if (err) console.error(err.message);
+          else if (!row) {
+            db.run(
+              "INSERT INTO usuarios (username, password) VALUES (?, ?)",
+              ["admin", "admin2025"],
+              (err) => {
+                if (err) console.error(err.message);
+                else console.log("Usuário 'admin' criado com sucesso!");
+              }
+            );
+          }
+        });
+      }
+    }
+  );
 });
 
-// Rota de login (validação)
-app.post('/login', (req, res) => {
+// Rota de login
+app.post("/login", (req, res) => {
   const { username, password } = req.body;
-  if (username === ADMIN_USER && password === ADMIN_PASS) {
-    req.session.user = ADMIN_USER;
-    return res.redirect('/');
-  }
-  return res.send('Credenciais inválidas. <a href="/login">Tentar novamente</a>');
+
+  db.get(
+    "SELECT * FROM usuarios WHERE username = ? AND password = ?",
+    [username, password],
+    (err, row) => {
+      if (err) return res.status(500).json({ success: false, message: "Erro no servidor" });
+      if (row) return res.json({ success: true, message: "Login bem-sucedido" });
+      else return res.status(401).json({ success: false, message: "Usuário ou senha inválidos" });
+    }
+  );
 });
 
-// Logout
-app.get('/logout', (req, res) => {
-  req.session.destroy(err => {
-    res.redirect('/login');
-  });
-});
-
-// Servir arquivos estáticos (CSS/JS/imagens)
-app.use('/static', express.static(path.join(__dirname, 'public')));
-
-// Rota raiz protegida (só acessível se logado)
-app.get('/', requireLogin, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// Rota raiz - serve index.html
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 // Iniciar servidor
-app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Servidor rodando em http://localhost:${PORT}`);
+});
