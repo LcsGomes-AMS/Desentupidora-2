@@ -4,10 +4,11 @@ const bodyParser = require("body-parser");
 const path = require("path");
 const PORT = process.env.PORT || 3000;
 
-
-
-
 const app = express();
+const USERS = [
+    { username: 'admin', password: '123456' },
+];
+
 
 
 // Middlewares
