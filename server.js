@@ -1,9 +1,10 @@
 // server.js
 const express = require("express");
-const sqlite3 = require("sqlite3").verbose();
 const bodyParser = require("body-parser");
 const path = require("path");
 const PORT = process.env.PORT || 3000;
+const sqlite3 = require('sqlite3');
+
 
 
 const app = express();
