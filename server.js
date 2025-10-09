@@ -1,13 +1,25 @@
-const express = require('express');
-const path = require('path');
-const sqlite3 = require('sqlite3').verbose(); // ✅ IMPORTANTE
+// server.js
+const express = require("express");
+const bodyParser = require("body-parser");
+const path = require("path");
+const PORT = process.env.PORT || 3000;
+
+
+
+
 const app = express();
 
-// cria (ou abre) o banco local
-const db = new sqlite3.Database(path.join(__dirname, "banco.db"), (err) => {
-  if (err) {
-    console.error("Erro ao abrir o banco:", err);
-  } else {
-    console.log("Banco de dados conectado com sucesso!");
-  }
+
+// Middlewares
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, "public"))); // serve arquivos da pasta public
+
+// Rota raiz - serve index.html
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// Iniciar servidor
+app.listen(PORT, () => {
+  console.log(`Servidor rodando em http://localhost:${PORT}`);
 });
